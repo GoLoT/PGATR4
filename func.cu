@@ -59,11 +59,15 @@ void separateChannels(const uchar4* const inputImageRGBA,
   // TODO: 
   // NOTA: Cuidado al acceder a memoria que esta fuera de los limites de la imagen
   //
-  // if ( absolute_image_position_x >= numCols ||
-  //      absolute_image_position_y >= numRows )
-  // {
-  //     return;
-  // }
+  const int2 thread_2D_pos = make_int2( blockIdx.x * blockDim.x + threadIdx.x,
+                                        blockIdx.y * blockDim.y + threadIdx.y);
+  const int thread_1D_pos = thread_2D_pos.y * numCols + thread_2D_pos.x;
+  if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows)
+    return;
+
+  redChannel[thread_1D_pos] = inputImageRGBA[thread_1D_pos].x;
+  greenChannel[thread_1D_pos] = inputImageRGBA[thread_1D_pos].y;
+  blueChannel[thread_1D_pos] = inputImageRGBA[thread_1D_pos].z;
 }
 
 //This kernel takes in three color channels and recombines them
@@ -167,10 +171,17 @@ void convolution(const uchar4 * const h_inputImageRGBA, uchar4 * const d_inputIm
                         const int filterWidth)
 {
   //TODO: Calcular tamaños de bloque
-  const dim3 blockSize;
-  const dim3 gridSize;
+  const dim3 blockSize = {32, 32, 1};
+  const dim3 gridSize = { ((unsigned int)numCols-1)/blockSize.x+1, ((unsigned int)numRows-1)/blockSize.y+1, 1 };
 
   //TODO: Lanzar kernel para separar imagenes RGBA en diferentes colores
+  separateChannels <<<gridSize, blockSize >>> (d_inputImageRGBA,
+    numRows,
+    numCols,
+    d_redFiltered,
+    d_greenFiltered,
+    d_blueFiltered
+    );
 
   //TODO: Ejecutar convolución. Una por canal
   
