@@ -44,6 +44,24 @@ void box_filter(const unsigned char* const inputChannel,
   // }
   // NOTA: Que un thread tenga una posición correcta en 2D no quiere decir que al aplicar el filtro
   // los valores de sus vecinos sean correctos, ya que pueden salirse de la imagen.
+
+  const int2 thread_2D_pos = make_int2(blockIdx.x * blockDim.x + threadIdx.x,
+    blockIdx.y * blockDim.y + threadIdx.y);
+  if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows)
+    return;
+  int filterRadius = filterWidth / 2;
+  float result = 0;
+  for (int j = -filterRadius; j <= filterRadius; j++)
+    for (int i = -filterRadius; i <= filterRadius; i++)  {
+      int x = thread_2D_pos.x + i;
+      x = x >= numCols ? numCols - 1 : x;
+      x = x < 0 ? 0 : x;
+      int y = thread_2D_pos.y + j;
+      y = y >= numRows ? numRows - 1 : y;
+      y = y < 0 ? 0 : y;
+      result += (float) filter[(j + filterRadius)*filterWidth + i + filterRadius] * (float) inputChannel[y*numCols + x];
+    }
+  outputChannel[thread_2D_pos.y * numCols + thread_2D_pos.x] = result>255?255:result<0?0:(char)result;
 }
 
 //This kernel takes in an image represented as a uchar4 and splits
@@ -116,6 +134,8 @@ void allocateMemoryAndCopyToGPU(const size_t numRowsImage, const size_t numColsI
   //TODO:
   //Reservar memoria para el filtro en GPU: d_filter, la cual ya esta declarada
   // Copiar el filtro  (h_filter) a memoria global de la GPU (d_filter)
+  checkCudaErrors(cudaMalloc(&d_filter, sizeof(float) * filterWidth * filterWidth));
+  checkCudaErrors(cudaMemcpy(d_filter, h_filter, sizeof(float) * filterWidth * filterWidth, cudaMemcpyHostToDevice));
 }
 
 
@@ -178,12 +198,35 @@ void convolution(const uchar4 * const h_inputImageRGBA, uchar4 * const d_inputIm
   separateChannels <<<gridSize, blockSize >>> (d_inputImageRGBA,
     numRows,
     numCols,
-    d_redFiltered,
-    d_greenFiltered,
-    d_blueFiltered
+    d_red,
+    d_green,
+    d_blue
     );
 
   //TODO: Ejecutar convolución. Una por canal
+  box_filter<<<gridSize, blockSize >>> (d_red,
+    d_redFiltered,
+    numRows,
+    numCols,
+    d_filter,
+    filterWidth
+    );
+
+  box_filter << <gridSize, blockSize >> > (d_green,
+    d_greenFiltered,
+    numRows,
+    numCols,
+    d_filter,
+    filterWidth
+    );
+
+  box_filter << <gridSize, blockSize >> > (d_blue,
+    d_blueFiltered,
+    numRows,
+    numCols,
+    d_filter,
+    filterWidth
+    );
   
 
   // Recombining the results. 
