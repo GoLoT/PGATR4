@@ -28,13 +28,19 @@ void check(T err, const char* const func, const char* const file, const int line
   }
 }
 
+// 1 = Laplacian5x5 ; 2 = Nitidez5x5; 3 = PasoAlto5x5; 4 = Media3x3 ; 5 = Blur3x3
+#define FILTER 3
 //Definimos tamaño de bloque en preprocesador para facilidad al hacer pruebas
 #define BLOCK_SZ 32
-//Definimos en preprocesador para poder inicializar array de memoria constante
+//Definimos tamaño de convolución en preprocesador para poder inicializar array de memoria constante
+#if FILTER == 4 || FILTER == 5
+#define KERNEL_SZ 3
+#else
 #define KERNEL_SZ 5
+#endif
 __constant__ float d_filterConst[KERNEL_SZ*KERNEL_SZ];
 //Definimos para facilitar el cambio entre los kernels de memoria compartida y global
-#define SHARED 1
+#define SHARED 0
 
 __global__
 void box_filter_shared(const unsigned char* const inputChannel,
@@ -261,16 +267,63 @@ void create_filter(float **h_filter, int *filterWidth){
   }
   */
 
+#if FILTER == 2
+  //Nitidez 5x5
+  (*h_filter)[0] = 0;     (*h_filter)[1] = -1.;    (*h_filter)[2] = -1.;  (*h_filter)[3] = -1.;    (*h_filter)[4] = 0;
+  (*h_filter)[5] = -1.;   (*h_filter)[6] = 2.;    (*h_filter)[7] = -4.;  (*h_filter)[8] = 2.;     (*h_filter)[9] = -1.;
+  (*h_filter)[10] = -1.;  (*h_filter)[11] = -4.;  (*h_filter)[12] = 13.; (*h_filter)[13] = -4.;   (*h_filter)[14] = -1.;
+  (*h_filter)[15] = -1.;  (*h_filter)[16] = 2.;   (*h_filter)[17] = -4.; (*h_filter)[18] = 2.;    (*h_filter)[19] = -1.;
+  (*h_filter)[20] = 0;    (*h_filter)[21] = -1.;   (*h_filter)[22] = -1.; (*h_filter)[23] = -1.;    (*h_filter)[24] = 0;
+
+#elif FILTER == 3
+  //PasoAlto 5x5
+  (*h_filter)[0] = 1.;   (*h_filter)[1] = 1.;   (*h_filter)[2] = 1.;    (*h_filter)[3] = 1.;    (*h_filter)[4] = 1.;
+  (*h_filter)[5] = 1.;   (*h_filter)[6] = 4.;   (*h_filter)[7] = 4.;    (*h_filter)[8] = 4.;    (*h_filter)[9] = 1.;
+  (*h_filter)[10] = 1.;  (*h_filter)[11] = 4.;  (*h_filter)[12] = 12.;  (*h_filter)[13] = 4.;   (*h_filter)[14] = 1.;
+  (*h_filter)[15] = 1.;  (*h_filter)[16] = 4.;  (*h_filter)[17] = 4.;   (*h_filter)[18] = 4.;   (*h_filter)[19] = 1.;
+  (*h_filter)[20] = 1.;  (*h_filter)[21] = 1.;  (*h_filter)[22] = 1.;   (*h_filter)[23] = 1.;   (*h_filter)[24] = 1.;
+
+  for (int i = 0; i < 25; i++)
+    (*h_filter)[i] /= 62.0;
+
+#elif FILTER == 4
+  //Media3x3
+  (*h_filter)[0] = 1.;    (*h_filter)[1] = 1.;    (*h_filter)[2] = 1.;
+  (*h_filter)[3] = 1.;    (*h_filter)[4] = 1.;    (*h_filter)[5] = 1.;
+  (*h_filter)[6] = 1.;    (*h_filter)[7] = 1.;    (*h_filter)[8] = 1.;
+
+  for (int i = 0; i < 9; i++)
+    (*h_filter)[i] /= 9.0;
+
+#elif FILTER == 5
+  //Blur3x3
+  (*h_filter)[0] = 1.;    (*h_filter)[1] = 2.;    (*h_filter)[2] = 1.;
+  (*h_filter)[3] = 2.;    (*h_filter)[4] = 4.;    (*h_filter)[5] = 2.;  
+  (*h_filter)[6] = 1.;    (*h_filter)[7] = 2.;    (*h_filter)[8] = 1.;
+
+  for (int i = 0; i < 9; i++)
+    (*h_filter)[i] /= 16.0;
+
+#elif FILTER == 6
+  //Blur5x5
+  (*h_filter)[0] = 1.;   (*h_filter)[1] = 1.;   (*h_filter)[2] = 1.;    (*h_filter)[3] = 1.;    (*h_filter)[4] = 1.;
+  (*h_filter)[5] = 1.;   (*h_filter)[6] = 4.;   (*h_filter)[7] = 4.;    (*h_filter)[8] = 4.;    (*h_filter)[9] = 1.;
+  (*h_filter)[10] = 1.;  (*h_filter)[11] = 4.;  (*h_filter)[12] = 12.;  (*h_filter)[13] = 4.;   (*h_filter)[14] = 1.;
+  (*h_filter)[15] = 1.;  (*h_filter)[16] = 4.;  (*h_filter)[17] = 4.;   (*h_filter)[18] = 4.;   (*h_filter)[19] = 1.;
+  (*h_filter)[20] = 1.;  (*h_filter)[21] = 1.;  (*h_filter)[22] = 1.;   (*h_filter)[23] = 1.;   (*h_filter)[24] = 1.;
+
+  for (int i = 0; i < 25; i++)
+    (*h_filter)[i] /= 16.0;
+
+#else
   //Laplaciano 5x5
   (*h_filter)[0] = 0;   (*h_filter)[1] = 0;    (*h_filter)[2] = -1.;  (*h_filter)[3] = 0;    (*h_filter)[4] = 0;
   (*h_filter)[5] = 1.;  (*h_filter)[6] = -1.;  (*h_filter)[7] = -2.;  (*h_filter)[8] = -1.;  (*h_filter)[9] = 0;
-  (*h_filter)[10] = -1.;(*h_filter)[11] = -2.; (*h_filter)[12] = 17.; (*h_filter)[13] = -2.; (*h_filter)[14] = -1.;
+  (*h_filter)[10] = -1.; (*h_filter)[11] = -2.; (*h_filter)[12] = 17.; (*h_filter)[13] = -2.; (*h_filter)[14] = -1.;
   (*h_filter)[15] = 1.; (*h_filter)[16] = -1.; (*h_filter)[17] = -2.; (*h_filter)[18] = -1.; (*h_filter)[19] = 0;
   (*h_filter)[20] = 1.;  (*h_filter)[21] = 0;   (*h_filter)[22] = -1.; (*h_filter)[23] = 0;   (*h_filter)[24] = 0;
-  
-  //TODO: crear los filtros segun necesidad
-  //NOTA: cuidado al establecer el tamaño del filtro a utilizar
 
+#endif
 }
 
 
@@ -296,7 +349,7 @@ void convolution(const uchar4 * const h_inputImageRGBA, uchar4 * const d_inputIm
 
   //TODO: Ejecutar convolución. Una por canal
 
-#ifdef SHARED
+#if SHARED == 1
 
   box_filter_shared <<<gridSize, blockSize, sizeof(unsigned char) * (blockSize.x + filterWidth - 1) * (blockSize.y + filterWidth - 1) >>> (
     d_red,
