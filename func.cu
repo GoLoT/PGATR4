@@ -28,13 +28,20 @@ void check(T err, const char* const func, const char* const file, const int line
   }
 }
 
-// 1 = Laplacian5x5 ; 2 = Nitidez5x5; 3 = PasoAlto5x5; 4 = Media3x3 ; 5 = Blur3x3
-#define FILTER 3
+#define GAUSSIAN_SZ 9
+// 1 = Laplacian5x5 ; 2 = Nitidez5x5; 3 = PasoAlto5x5; 4 = Media3x3 ; 5 = Blur3x3 ; 6 = Blur5x5 ; 7 = GaussianBlur ; 8 = SobelHori3x3 ; 9 = SobelVert3x3
+#define FILTER 2
 //Definimos tamaño de bloque en preprocesador para facilidad al hacer pruebas
 #define BLOCK_SZ 32
 //Definimos tamaño de convolución en preprocesador para poder inicializar array de memoria constante
-#if FILTER == 4 || FILTER == 5
+#if FILTER == 4 || FILTER == 5 || FILTER == 8 || FILTER == 9
 #define KERNEL_SZ 3
+#elif FILTER == 7
+#ifndef GAUSSIAN_SZ
+#define KERNEL_SZ 3
+#else
+#define KERNEL_SZ GAUSSIAN_SZ
+#endif
 #else
 #define KERNEL_SZ 5
 #endif
@@ -313,7 +320,40 @@ void create_filter(float **h_filter, int *filterWidth){
   (*h_filter)[20] = 1.;  (*h_filter)[21] = 1.;  (*h_filter)[22] = 1.;   (*h_filter)[23] = 1.;   (*h_filter)[24] = 1.;
 
   for (int i = 0; i < 25; i++)
-    (*h_filter)[i] /= 16.0;
+    (*h_filter)[i] /= 25.0;
+
+#elif FILTER == 7
+  const float KernelSigma = 2.;
+
+  float filterSum = 0.f; //for normalization
+
+  for (int r = -KernelWidth / 2; r <= KernelWidth / 2; ++r) {
+    for (int c = -KernelWidth / 2; c <= KernelWidth / 2; ++c) {
+      float filterValue = expf(-(float)(c * c + r * r) / (2.f * KernelSigma * KernelSigma));
+      (*h_filter)[(r + KernelWidth / 2) * KernelWidth + c + KernelWidth / 2] = filterValue;
+      filterSum += filterValue;
+    }
+  }
+
+  float normalizationFactor = 1.f / filterSum;
+
+  for (int r = -KernelWidth / 2; r <= KernelWidth / 2; ++r) {
+    for (int c = -KernelWidth / 2; c <= KernelWidth / 2; ++c) {
+      (*h_filter)[(r + KernelWidth / 2) * KernelWidth + c + KernelWidth / 2] *= normalizationFactor;
+    }
+  }
+
+#elif FILTER == 8
+  //SobelHorizontal3x3
+  (*h_filter)[0] = -1.;   (*h_filter)[1] = -2.;   (*h_filter)[2] = -1.;
+  (*h_filter)[3] = 0;     (*h_filter)[4] = 0;     (*h_filter)[5] = 0;
+  (*h_filter)[6] = 1.;    (*h_filter)[7] = 2.;    (*h_filter)[8] = 1.;
+
+#elif FILTER == 9
+  //SobelVertical3x3
+  (*h_filter)[0] = 1.;    (*h_filter)[1] = 2.;    (*h_filter)[2] = 1.;
+  (*h_filter)[3] = 0;     (*h_filter)[4] = 0;     (*h_filter)[5] = 0;
+  (*h_filter)[6] = -1.;   (*h_filter)[7] = -2.;   (*h_filter)[8] = -1.;
 
 #else
   //Laplaciano 5x5
