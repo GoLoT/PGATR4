@@ -30,7 +30,7 @@ void check(T err, const char* const func, const char* const file, const int line
 
 #define GAUSSIAN_SZ 9
 // 1 = Laplacian5x5 ; 2 = Nitidez5x5; 3 = PasoAlto5x5; 4 = Media3x3 ; 5 = Blur3x3 ; 6 = Blur5x5 ; 7 = GaussianBlur ; 8 = SobelHori3x3 ; 9 = SobelVert3x3
-#define FILTER 7
+#define FILTER 1
 //Definimos tamaño de bloque en preprocesador para facilidad al hacer pruebas
 #define BLOCK_SZ 32
 //Definimos tamaño de convolución en preprocesador para poder inicializar array de memoria constante
@@ -271,11 +271,11 @@ void create_filter(float **h_filter, int *filterWidth){
 
 #if FILTER == 2
   //Nitidez 5x5
-  (*h_filter)[0] = 0;     (*h_filter)[1] = -1.;    (*h_filter)[2] = -1.;  (*h_filter)[3] = -1.;    (*h_filter)[4] = 0;
-  (*h_filter)[5] = -1.;   (*h_filter)[6] = 2.;    (*h_filter)[7] = -4.;  (*h_filter)[8] = 2.;     (*h_filter)[9] = -1.;
-  (*h_filter)[10] = -1.;  (*h_filter)[11] = -4.;  (*h_filter)[12] = 13.; (*h_filter)[13] = -4.;   (*h_filter)[14] = -1.;
-  (*h_filter)[15] = -1.;  (*h_filter)[16] = 2.;   (*h_filter)[17] = -4.; (*h_filter)[18] = 2.;    (*h_filter)[19] = -1.;
-  (*h_filter)[20] = 0;    (*h_filter)[21] = -1.;   (*h_filter)[22] = -1.; (*h_filter)[23] = -1.;    (*h_filter)[24] = 0;
+  (*h_filter)[0] = -1.;     (*h_filter)[1] = -3.;   (*h_filter)[2] = -4.;   (*h_filter)[3] = -3.;     (*h_filter)[4] = -1.;
+  (*h_filter)[5] = -3.;     (*h_filter)[6] = 0;     (*h_filter)[7] = 6.;    (*h_filter)[8] = 0;       (*h_filter)[9] = 3.;
+  (*h_filter)[10] = -4.;    (*h_filter)[11] = 6.;   (*h_filter)[12] = 21.;  (*h_filter)[13] = 6.;     (*h_filter)[14] = -4.;
+  (*h_filter)[15] = -3.;    (*h_filter)[16] = 0;    (*h_filter)[17] = 6.;   (*h_filter)[18] = 0;      (*h_filter)[19] = -3.;
+  (*h_filter)[20] = -1.;    (*h_filter)[21] = -3.;  (*h_filter)[22] = -4.;  (*h_filter)[23] = -3.;    (*h_filter)[24] = -1.;
 
 #elif FILTER == 3
   //PasoAlto 5x5
@@ -318,6 +318,8 @@ void create_filter(float **h_filter, int *filterWidth){
     (*h_filter)[i] /= 25.0;
 
 #elif FILTER == 7
+
+  //GaussNxN; N = GAUSSIAN_SZ
   const float KernelSigma = 2.;
 
   float filterSum = 0.f; //for normalization
@@ -346,17 +348,17 @@ void create_filter(float **h_filter, int *filterWidth){
 
 #elif FILTER == 9
   //SobelVertical3x3
-  (*h_filter)[0] = 1.;    (*h_filter)[1] = 2.;    (*h_filter)[2] = 1.;
-  (*h_filter)[3] = 0;     (*h_filter)[4] = 0;     (*h_filter)[5] = 0;
-  (*h_filter)[6] = -1.;   (*h_filter)[7] = -2.;   (*h_filter)[8] = -1.;
+  (*h_filter)[0] = -1.;   (*h_filter)[1] = 0;     (*h_filter)[2] = 1.;
+  (*h_filter)[3] = -2.;   (*h_filter)[4] = 0;     (*h_filter)[5] = 2.;
+  (*h_filter)[6] = -1.;   (*h_filter)[7] = 0;     (*h_filter)[8] = 1.;
 
 #else
   //Laplaciano 5x5
-  (*h_filter)[0] = 0;   (*h_filter)[1] = 0;    (*h_filter)[2] = -1.;  (*h_filter)[3] = 0;    (*h_filter)[4] = 0;
-  (*h_filter)[5] = 1.;  (*h_filter)[6] = -1.;  (*h_filter)[7] = -2.;  (*h_filter)[8] = -1.;  (*h_filter)[9] = 0;
-  (*h_filter)[10] = -1.; (*h_filter)[11] = -2.; (*h_filter)[12] = 17.; (*h_filter)[13] = -2.; (*h_filter)[14] = -1.;
-  (*h_filter)[15] = 1.; (*h_filter)[16] = -1.; (*h_filter)[17] = -2.; (*h_filter)[18] = -1.; (*h_filter)[19] = 0;
-  (*h_filter)[20] = 1.;  (*h_filter)[21] = 0;   (*h_filter)[22] = -1.; (*h_filter)[23] = 0;   (*h_filter)[24] = 0;
+  (*h_filter)[0] = 0;     (*h_filter)[1] = 0;    (*h_filter)[2] = -1.;  (*h_filter)[3] = 0;    (*h_filter)[4] = 0;
+  (*h_filter)[5] = 1.;    (*h_filter)[6] = -1.;  (*h_filter)[7] = -2.;  (*h_filter)[8] = -1.;  (*h_filter)[9] = 0;
+  (*h_filter)[10] = -1.;  (*h_filter)[11] = -2.; (*h_filter)[12] = 17.; (*h_filter)[13] = -2.; (*h_filter)[14] = -1.;
+  (*h_filter)[15] = 1.;   (*h_filter)[16] = -1.; (*h_filter)[17] = -2.; (*h_filter)[18] = -1.; (*h_filter)[19] = 0;
+  (*h_filter)[20] = 1.;   (*h_filter)[21] = 0;   (*h_filter)[22] = -1.; (*h_filter)[23] = 0;   (*h_filter)[24] = 0;
 
 #endif
 }
