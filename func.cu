@@ -30,7 +30,7 @@ void check(T err, const char* const func, const char* const file, const int line
 
 #define GAUSSIAN_SZ 9
 // 1 = Laplacian5x5 ; 2 = Nitidez5x5; 3 = PasoAlto5x5; 4 = Media3x3 ; 5 = Blur3x3 ; 6 = Blur5x5 ; 7 = GaussianBlur ; 8 = SobelHori3x3 ; 9 = SobelVert3x3
-#define FILTER 2
+#define FILTER 7
 //Definimos tamaño de bloque en preprocesador para facilidad al hacer pruebas
 #define BLOCK_SZ 32
 //Definimos tamaño de convolución en preprocesador para poder inicializar array de memoria constante
@@ -47,7 +47,7 @@ void check(T err, const char* const func, const char* const file, const int line
 #endif
 __constant__ float d_filterConst[KERNEL_SZ*KERNEL_SZ];
 //Definimos para facilitar el cambio entre los kernels de memoria compartida y global
-#define SHARED 0
+#define SHARED 1
 
 __global__
 void box_filter_shared(const unsigned char* const inputChannel,
@@ -74,38 +74,37 @@ void box_filter_shared(const unsigned char* const inputChannel,
   //Shared size siempre debería ser par, ya que blockdim.x, blockdim.y
   //y filterwidth-1 siempre deberán ser pares
   const int sharedSize = (blockDim.x + filterWidth - 1) * (blockDim.y + filterWidth - 1);
-  const int halfSharedSize = sharedSize / 2;
   const int halfFilterWidth = filterWidth / 2;
   const int threadNum = threadIdx.y * blockDim.x + threadIdx.x;
   const int width = blockDim.x + filterWidth - 1;
 
-  if(threadNum < halfSharedSize)
+  const int numThreads = blockDim.x * blockDim.y;
+  int workingThreads, offset = 0;
+
+  //Calculamos coordenadas de imagen de la sección a mapear en shared memory
+  const int startX = blockIdx.x * blockDim.x - halfFilterWidth;
+  const int startY = blockIdx.y * blockDim.y - halfFilterWidth;
+
+  while(offset < sharedSize)
   {
-    //Calculamos coordenadas de imagen de la sección a mapear en shared memory
-    const int startX = blockIdx.x * blockDim.x - halfFilterWidth;
-    const int startY = blockIdx.y * blockDim.y - halfFilterWidth;
+    workingThreads = sharedSize - offset;
+    workingThreads = numThreads > workingThreads ? workingThreads : numThreads;
 
-    //Calculamos las coordenadas en shared memory
-    int sharedY = threadNum / width;
-    int sharedX = threadNum - sharedY * width;
-    //Pasamos a coordenadas de imagen
-    sharedX += startX;
-    sharedY += startY;
-    //Hacemos clamp para asegurar que no nos salimos de la imagen
-    sharedY = sharedY >= numRows ? numRows - 1 : sharedY < 0 ? 0 : sharedY;
-    sharedX = sharedX >= numCols ? numCols - 1 : sharedX < 0 ? 0 : sharedX;
+    if(threadNum < workingThreads)
+    {
+      //Calculamos las coordenadas en shared memory
+      int sharedY = (threadNum+offset) / width;
+      int sharedX = (threadNum+offset) - sharedY * width;
+      //Pasamos a coordenadas de imagen
+      int imgX = sharedX + startX;
+      int imgY = sharedY + startY;
+      //Hacemos clamp para asegurar que no nos salimos de la imagen
+      imgY = imgY >= numRows ? numRows - 1 : imgY < 0 ? 0 : imgY;
+      imgX = imgX >= numCols ? numCols - 1 : imgX < 0 ? 0 : imgX;
 
-    image_shared[threadNum] = inputChannel[sharedY * width + sharedX];
-
-    sharedY = (threadNum + halfSharedSize) / width;
-    sharedX = (threadNum + halfSharedSize) - sharedY * width;
-    sharedX += startX;
-    sharedY += startY;
-    sharedY = sharedY >= numRows ? numRows - 1 : sharedY < 0 ? 0 : sharedY;
-    sharedX = sharedX >= numCols ? numCols - 1 : sharedX < 0 ? 0 : sharedX;
-
-    image_shared[threadNum + halfSharedSize] = inputChannel[sharedY * width + sharedX];
-
+      image_shared[threadNum + offset] = inputChannel[imgY * numCols + imgX];
+    }
+    offset += workingThreads;
   }
 
   __syncthreads();
@@ -113,19 +112,15 @@ void box_filter_shared(const unsigned char* const inputChannel,
   if (thread_2D_pos.x >= numCols || thread_2D_pos.y >= numRows)
     return;
   int filterRadius = filterWidth / 2;
-  /*float result = 0;
+  float result = 0;
   for (int j = -filterRadius; j <= filterRadius; j++)
     for (int i = -filterRadius; i <= filterRadius; i++) {
       int x = threadIdx.x + halfFilterWidth + i;
       int y = threadIdx.y + halfFilterWidth + j;
 
-      float f = d_filterConst[(j + filterRadius)*filterWidth + i + filterRadius];
-      float c = image_shared[y*width + x];
-      result += f * c;
-      //result += (float)d_filterConst[(j + filterRadius)*filterWidth + i + filterRadius] * (float)image_shared[y*width + x];
+      result += (float)d_filterConst[(j + filterRadius)*filterWidth + i + filterRadius] * (float)image_shared[y*width + x];
     }
-  outputChannel[thread_1D_pos] = result > 255 ? 255 : result < 0 ? 0 : (char)result;*/
-  outputChannel[thread_1D_pos] = image_shared[(threadIdx.y + halfFilterWidth)*width + threadIdx.x + halfFilterWidth];
+  outputChannel[thread_1D_pos] = result > 255 ? 255 : result < 0 ? 0 : (char)result;
 }
 
 __global__
