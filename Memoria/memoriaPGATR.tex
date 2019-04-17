@@ -95,7 +95,7 @@ En este caso sí se han observado diferencias de rendimiento, aunque estas sólo
 
 La causa más probable es que, al no estar optimizados los accesos a memoria, el aumento del número de operaciones realizadas y de la distancia en memoria de los distintos accesos está provocando fallos de caché, haciendo que los accesos a memoria global sean mucho más costosos que los accesos a memoria compartida.
 
-\subsection{Pruebas locales}
+\section{Pruebas locales}
 Para asegurar el correcto funcionamiento de los filtros se han realizado ejecuciones sobre las imágenes proporcionadas y se han comparado con los resultados de ejemplo. Se han obtenido coincidencias exactas tanto al aplicar el filtro laplaciano 5x5 como al aplicar el gaussian blur 9x9.\\
 
 Las directivas de preprocesador necesarias para estas ejecuciones son \textbf{FILTER = 1} para el filtro \textbf{Laplacian5x5}; y \textbf{FILTER = 7}, \textbf{GAUSSIAN\_SZ = 9} para el filtro \textbf{Gaussian9x9}.
